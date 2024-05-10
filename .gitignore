@@ -1,4 +1,6 @@
 __pycache__/
 .ipynb_checkpoints/
 datasets/
+cocopre/
+mask-rcnn-trained/
 *.DS_Store
