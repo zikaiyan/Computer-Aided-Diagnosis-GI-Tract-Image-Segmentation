@@ -2,11 +2,15 @@ import os
 import pandas as pd
 import numpy as np
 import itertools
+import random
+import torchvision.transforms as transforms
+import torchvision.transforms.functional as TF
 import cv2
 from torch.utils.data import Dataset, DataLoader
 from pycocotools.coco import COCO
 from tqdm import tqdm
 import warnings
+from PIL import Image
 warnings.simplefilter(action='ignore')
 
 from .utils.data_utils import get_scan_file_path, decode_rle, convert_binary_mask_to_rle
@@ -104,6 +108,35 @@ class SegmentationDataset():
                         count += 1
         return annotations
 
+class RandomTransforms:
+    """ This class applies the same random transformations to both images and masks. """
+    def __init__(self):
+        self.color_jitter = transforms.ColorJitter(brightness=0.05, contrast=0.05)
+
+    def __call__(self, image, masks):
+        
+        if not isinstance(image, Image.Image):
+            image = Image.fromarray(image.astype('uint8'), 'RGB')
+        if not isinstance(masks[0], Image.Image):
+            masks = [Image.fromarray(mask.astype('uint8'), 'L') for mask in masks]  # Mask should be converted to 'L' mode
+
+        if random.random() > 0.5:
+            image = self.color_jitter(image)
+
+        # Apply random horizontal flip
+        if random.random() > 0.5:
+            image = TF.hflip(image)
+            masks = [TF.hflip(mask) for mask in masks]     
+
+        if random.random() > 0.5:
+            angle = random.randint(-5, 5)  # Rotation degree
+            image = TF.rotate(image, angle)
+            masks = [TF.rotate(mask, angle) for mask in masks]
+
+        image = np.array(image)[:, :, ::-1]
+        masks = [np.array(mask) for mask in masks]
+
+        return image, masks
     
 class DataGenerator(Dataset):
     def __init__(self, dataset_dir, subset, classes, 
@@ -117,9 +150,9 @@ class DataGenerator(Dataset):
         self.imgIds = self.coco.getImgIds()
         self.image_list = self.coco.loadImgs(self.imgIds)
         self.indexes = np.arange(len(self.image_list))
-        self.input_image_size= (input_image_size)
+        self.input_image_size = (input_image_size)
         self.dataset_size = len(self.image_list)
-        self.transform = transform
+        self.transform = RandomTransforms() if transform else None
         self.shuffle = shuffle
         self.on_epoch_end()
 
@@ -159,7 +192,10 @@ class DataGenerator(Dataset):
       return masks       
 
     def get_image(self, file_path):
-        train_img = cv2.imread(os.path.join(self.dataset_dir, file_path), cv2.IMREAD_ANYDEPTH)
+        full_path = os.path.join(self.dataset_dir, file_path)
+        train_img = cv2.imread(full_path, cv2.IMREAD_ANYDEPTH)
+        if train_img is None:
+            raise ValueError(f"Unable to load image from path: {full_path}")
         train_img = cv2.resize(train_img, (self.input_image_size))
         train_img = train_img.astype(np.float32) / 255.
         if (len(train_img.shape)==3 and train_img.shape[2]==3): 
@@ -174,17 +210,15 @@ class DataGenerator(Dataset):
         y = np.empty((128, 128, 3))
 
         img_info = self.image_list[index]
+
         X = self.get_image(img_info['file_name'])
-        if self.transform:
-            X = self.transform(X)
-            
         mask_train = self.get_levels_mask(img_info['id'])
 
+        if self.transform:
+            X, mask_train = self.transform(X, mask_train)
+
         for j in self.catIds:
-            if self.transform:
-                y[:, :, j] = self.transform(mask_train[j])
-            else:
-                y[:, :, j] = mask_train[j]
+            y[:, :, j] = mask_train[j]
 
         X = np.array(X)
         y = np.array(y)
