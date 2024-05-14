@@ -1,7 +1,0 @@
-tqdm
-numpy
-pandas
-matplotlib
-scikit-learn
-pytorch
-pycocotools
