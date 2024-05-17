@@ -73,10 +73,10 @@ Multi-task learning entails performing two tasks simultaneously. In this case, (
 ## Dice Loss
 
 The Dice loss function is universally applied across all our methods to evaluate the similarity between two binary masks. Consider two binary masks, \(M_1\) and \(M_2\), which correspond to the set of pixels each mask covers. The Dice coefficient for these masks is calculated as follows:
+
 $$
 C = \frac{2 \times |M_1 \cap M_2|}{|M_1| + |M_2|}
 $$
-
 
 where $| \cdot |$, denotes the number of pixels in the set. The coefficient $C$ ranges between 0 and 1, where a Dice coefficient of 1 indicates perfect overlap between the masks and 0 indicates no overlap.
 
@@ -85,6 +85,7 @@ For $M_1$ as the predicted mask and $M_2$ as the true mask, the Dice loss is def
 $$
 L_{\text{Dice}} = 1 - C
 $$
+
 Our objective is to minimize this Dice loss, $L_{\text{Dice}}$, to improve the accuracy of the predicted mask in matching the true mask.
 
 ## Intersection over Union (IoU)
@@ -94,6 +95,7 @@ Intersection over Union (IoU) is a metric used to evaluate the accuracy of an ob
 $$
 IoU = \frac{|M_1 \cap M_2|}{|M_1 \cup M_2|} = \frac{|M_1 \cap M_2|}{|M_1| + |M_2| - |M_1 \cap M_2|}
 $$
+
 IoU provides a value between 0 and 1, where 0 means no overlap, and 1 represents perfect overlap. A higher IoU score indicates a more accurate model. In practice, a threshold (like 0.5) is often used to decide whether predictions are correct.
 
 For evaluating models, IoU is favored over Dice Loss. Since Mask R-CNN is not fit for Dice Loss, it will naturally have a higher loss, leading to unfair comparisons between models.
